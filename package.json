@@ -1,0 +1,5 @@
+{
+    "name": "frozen-pebble",
+    "description": "Spotify daemon for Pebble remote",
+    "version": "1.0.0"
+}
