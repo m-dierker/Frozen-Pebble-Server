@@ -2,10 +2,8 @@ var Firebase = require('Firebase');
 var firebase = new Firebase('https://frozenpebble.firebaseio.com/');
 
 var userBase = firebase.child('users/mdierker');
-var statusBase = userBase.child('desktop_status');
 var trackBase = userBase.child('track');
-var trackChangeBase = userBase.child('track_change');
-var cmdBase = userBase.child('cmd');
+var trackSetBase = userBase.child('track_set');
 
 var spotify = require('spotify-node-applescript');
 
@@ -29,13 +27,12 @@ function periodicUpdate() {
 function updatePlayingStatusFromClient() {
     spotify.getState(function(err, state) {
         if (err) { return; }
-        console.log("Updating status from client");
-        statusBase.set({'desktop_status': state['state'] == 'playing'});
+        userBase.update({'desktop_status': state['state'] == 'playing'});
     });
 }
 
 function setupStatusListener() {
-    statusBase.on('child_changed', function (snapshot) {
+    userBase.on('child_changed', function (snapshot) {
         if (snapshot.name() == 'desktop_status') {
             console.log("playing or pausing");
             if (snapshot.val()) {
@@ -56,7 +53,7 @@ function changeTrack(snapshot) {
     }
 }
 function setupTrackListener() {
-    trackChangeBase.on('child_changed', function(snapshot) {
+    trackSetBase.on('child_changed', function(snapshot) {
         changeTrack(snapshot);
     });
 
@@ -64,7 +61,7 @@ function setupTrackListener() {
 }
 
 function resetTrackChange() {
-    trackChangeBase.set({'track': {
+    trackSetBase.set({'track': {
         'id': 0
     }});
 }
@@ -72,29 +69,41 @@ function resetTrackChange() {
 function updateTrack() {
     spotify.getTrack(function(err, track) {
         if (track) {
-            trackBase.set({'track': track});
+            trackBase.set(track);
         }
     });
 }
 
 function setupCmdListener() {
-    cmdBase.remove();
+    userBase.update({'cmd': null});
 
-    cmdBase.on('child_added', function(snapshot) {
-        switch(snapshot.name()) {
-            case 'next_track':
-                spotify.next();
-                break;
-            case 'prev_track':
-                spotify.prev();
-                break;
-            case 'volume_down':
-                spotify.volumeDown();
-                break;
-            case 'volume_up':
-                spotify.volumeUp();
-                break;
+    userBase.on('child_added', function(snapshot) {
+        if (snapshot.name() == 'cmd') {
+            switch(snapshot.val()) {
+                case 'next_track':
+                    spotify.next();
+                    break;
+                case 'prev_track':
+                    spotify.previous();
+                    break;
+                case 'volume_down':
+                    spotify.volumeDown();
+                    break;
+                case 'volume_up':
+                    spotify.volumeUp();
+                    break;
+                case 'playpause':
+                    spotify.playPause();
+                    break;
+                case 'rock_out_to_frozen':
+                    spotify.playTrack('spotify:track:0qcr5FMsEO85NAQjrlDRKo', function() {
+                        setTimeout(function() {
+                            spotify.jumpTo(182);
+                        }, 100);
+                    });
+                    break;
+            }
+            userBase.update({'cmd': null});
         }
-        cmdBase.remove();
     });
 }
